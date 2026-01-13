@@ -2,87 +2,91 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>HTPgpt - Fix CORS</title>
+    <title>HTPgpt - AI Chat</title>
     <style>
-        body { background: #121212; color: #eee; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        #chat-container { width: 380px; height: 500px; background: #1e1e1e; border-radius: 12px; display: flex; flex-direction: column; border: 1px solid #333; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
-        #messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .msg { padding: 10px; border-radius: 8px; font-size: 14px; max-width: 80%; word-wrap: break-word; }
-        .user { align-self: flex-end; background: #0056b3; }
-        .bot { align-self: flex-start; background: #333; border: 1px solid #444; }
-        .info { font-size: 10px; color: #777; align-self: center; text-align: center; }
-        #input-area { display: flex; padding: 10px; background: #181818; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
-        input { flex: 1; background: #252525; border: 1px solid #444; color: white; padding: 10px; border-radius: 6px; outline: none; }
-        button { margin-left: 8px; background: #28a745; border: none; color: white; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #218838; }
+        body { background: #0b0e11; color: #e9ecef; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #chat-window { width: 100%; max-width: 450px; height: 80vh; background: #1c2128; border-radius: 15px; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #444c56; }
+        #header { background: #2d333b; padding: 15px; border-radius: 15px 15px 0 0; text-align: center; color: #3fb950; font-weight: bold; border-bottom: 1px solid #444c56; }
+        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
+        .msg { padding: 10px 14px; border-radius: 12px; font-size: 14px; max-width: 80%; line-height: 1.5; word-wrap: break-word; }
+        .user { align-self: flex-end; background: #238636; color: white; border-bottom-right-radius: 2px; }
+        .bot { align-self: flex-start; background: #30363d; border: 1px solid #444c56; border-bottom-left-radius: 2px; }
+        #status { font-size: 12px; color: #8b949e; text-align: center; display: none; padding: 5px; }
+        #input-area { padding: 15px; display: flex; gap: 10px; background: #21262d; border-radius: 0 0 15px 15px; }
+        input { flex: 1; background: #0d1117; border: 1px solid #30363d; padding: 12px; border-radius: 6px; color: white; outline: none; }
+        button { background: #238636; border: none; color: white; padding: 0 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #2ea043; }
     </style>
 </head>
 <body>
 
-<div id="chat-container">
+<div id="chat-window">
+    <div id="header">HTPgpt v1.0</div>
     <div id="messages">
-        <div class="msg bot">Привет! Я исправил ошибку доступа. Теперь мы можем общаться прямо из файла.</div>
+        <div class="msg bot">Привет! Я HTPgpt. Можешь писать мне на русском или английском.</div>
     </div>
+    <div id="status">Нейросеть думает...</div>
     <div id="input-area">
-        <input type="text" id="user-input" placeholder="Напиши что-нибудь...">
-        <button id="send-btn">></button>
+        <input type="text" id="user-input" placeholder="Введите сообщение..." autocomplete="off">
+        <button id="send-btn">Send</button>
     </div>
 </div>
 
 <script>
-// Твой токен остается здесь
-const API_TOKEN = "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";
-const MODEL_URL = "https://api-inference.huggingface.co/models/gpt2";
+    const API_TOKEN = "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";
+    const MODEL_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
 
-document.addEventListener("DOMContentLoaded", () => {
-    const input = document.getElementById('user-input');
-    const btn = document.getElementById('send-btn');
-    const box = document.getElementById('messages');
+    const messagesDiv = document.getElementById('messages');
+    const inputField = document.getElementById('user-input');
+    const sendBtn = document.getElementById('send-btn');
+    const statusDiv = document.getElementById('status');
 
-    function show(text, type) {
-        const d = document.createElement('div');
-        d.className = 'msg ' + type;
-        d.innerText = text;
-        box.appendChild(d);
-        box.scrollTop = box.scrollHeight;
-    }
+    async function callAI() {
+        const text = inputField.value.trim();
+        if (!text) return;
 
-    async function chat() {
-        const val = input.value.trim();
-        if (!val) return;
-
-        show(val, 'user');
-        input.value = '';
+        addMessage(text, 'user');
+        inputField.value = '';
+        statusDiv.style.display = 'block';
 
         try {
-            // Используем fetch с параметром mode: 'cors'
             const response = await fetch(MODEL_URL, {
+                method: "POST",
                 headers: { 
                     "Authorization": `Bearer ${API_TOKEN}`,
-                    "Content-Type": "application/json"
+                    "Content-Type": "application/json" 
                 },
-                method: "POST",
-                mode: 'cors', // Явно указываем режим CORS
-                body: JSON.stringify({ inputs: val, parameters: { max_new_tokens: 50 } }),
+                body: JSON.stringify({ 
+                    inputs: `<s>[INST] Отвечай на русском языке. ${text} [/INST]`,
+                    parameters: { max_new_tokens: 250 }
+                }),
             });
 
             const data = await response.json();
-
+            
             if (data.error) {
-                show("Модель загружается на сервер Hugging Face. Попробуй еще раз через 20 секунд.", "info");
-            } else if (data[0] && data[0].generated_text) {
-                let cleanText = data[0].generated_text.replace(val, "").trim();
-                show(cleanText || "...", "bot");
+                addMessage("ИИ загружается (обычно это занимает 30 сек). Попробуй еще раз через мгновение.", "bot");
+            } else {
+                let aiText = data[0].generated_text.split('[/INST]').pop().trim();
+                addMessage(aiText || "Я не смог придумать ответ...", "bot");
             }
-        } catch (e) {
-            show("Браузер всё ещё блокирует запрос. Чтобы это исправить на 100%, нужно просто загрузить этот файл на GitHub или CodePen.", "info");
-            console.error(e);
+        } catch (err) {
+            addMessage("Ошибка связи с сервером.", "bot");
+        } finally {
+            statusDiv.style.display = 'none';
         }
     }
 
-    btn.onclick = chat;
-    input.onkeypress = (e) => { if (e.key === 'Enter') chat(); };
-});
+    function addMessage(text, sender) {
+        const div = document.createElement('div');
+        div.className = `msg ${sender}`;
+        div.innerText = text;
+        messagesDiv.appendChild(div);
+        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    }
+
+    sendBtn.onclick = callAI;
+    inputField.onkeypress = (e) => { if (e.key === 'Enter') callAI(); };
 </script>
 
 </body>
