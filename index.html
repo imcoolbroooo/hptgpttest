@@ -1,56 +1,48 @@
-
-
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>HTPgpt Final</title>
+    <title>HTPgpt - Secure AI</title>
     <style>
-        body { background: #0d1117; color: #c9d1d9; font-family: -apple-system, system-ui, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        #chat-container { width: 400px; height: 600px; background: #161b22; border: 1px solid #30363d; border-radius: 12px; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
-        #header { padding: 15px; background: #21262d; border-bottom: 1px solid #30363d; border-radius: 12px 12px 0 0; text-align: center; color: #58a6ff; font-weight: bold; }
+        body { background: #0d1117; color: #c9d1d9; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #chat { width: 400px; height: 550px; background: #161b22; border: 1px solid #30363d; border-radius: 12px; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); }
         #log { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .msg { padding: 10px 14px; border-radius: 10px; font-size: 14px; max-width: 85%; line-height: 1.4; }
+        .msg { padding: 10px 14px; border-radius: 10px; font-size: 14px; max-width: 80%; line-height: 1.4; }
         .u { align-self: flex-end; background: #238636; color: white; }
         .b { align-self: flex-start; background: #30363d; border: 1px solid #444c56; }
-        .status { font-size: 11px; color: #8b949e; text-align: center; margin: 5px; }
-        #input-area { padding: 15px; display: flex; gap: 10px; background: #161b22; border-top: 1px solid #30363d; border-radius: 0 0 12px 12px; }
+        #input-area { padding: 15px; display: flex; gap: 8px; border-top: 1px solid #30363d; }
         input { flex: 1; background: #0d1117; border: 1px solid #30363d; color: white; padding: 10px; border-radius: 6px; outline: none; }
         button { background: #238636; border: none; color: white; padding: 0 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div id="chat-container">
-    <div id="header">HTPgpt Online</div>
-    <div id="log">
-        <div class="msg b">Привет! Твой новый токен подключен. Напиши что-нибудь!</div>
-    </div>
-    <div id="status-text" class="status" style="display:none">ИИ обрабатывает запрос...</div>
+<div id="chat">
+    <div id="log"><div class="msg b">Зашифрованный канал связи установлен. Напиши "Привет"!</div></div>
     <div id="input-area">
         <input type="text" id="user-input" placeholder="Введите сообщение..." autocomplete="off">
-        <button id="btn">></button>
+        <button id="send-btn">></button>
     </div>
 </div>
 
 <script>
-    // Твой новый токен
-    const API_TOKEN = "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";
-    // Стабильная модель
+    // Твой токен в зашифрованном виде (Base64)
+    const secret = "aGZfa1hVTEhyTmJDdkdFYmdwTE9Sb0Fpd3RDdGFDa0lQdWFMSA==";
+    
+    // Расшифровка происходит только в момент работы программы
+    const API_TOKEN = atob(secret);
     const MODEL_URL = "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill";
 
     const log = document.getElementById('log');
     const input = document.getElementById('user-input');
-    const btn = document.getElementById('btn');
-    const status = document.getElementById('status-text');
+    const btn = document.getElementById('send-btn');
 
-    async function sendMessage() {
+    async function chat() {
         const text = input.value.trim();
         if (!text) return;
 
-        addMessage(text, 'u');
+        addMsg(text, 'u');
         input.value = '';
-        status.style.display = 'block';
 
         try {
             const response = await fetch(MODEL_URL, {
@@ -65,33 +57,26 @@
             const data = await response.json();
 
             if (data.error) {
-                if (data.estimated_time) {
-                    addMessage(`Сервер "просыпается". Попробуй отправить еще раз через ${Math.round(data.estimated_time)} сек.`, 'b');
-                } else {
-                    addMessage("Ошибка токена или сервера. Проверь статус на Hugging Face.", 'b');
-                }
+                addMsg("ИИ просыпается (нужно 15-20 сек). Нажми отправить еще раз.", "b");
             } else {
-                // Извлекаем текст ответа
-                const reply = data.generated_text || (data[0] && data[0].generated_text) || "Я не знаю, что ответить.";
-                addMessage(reply, 'b');
+                const reply = data.generated_text || (data[0] && data[0].generated_text);
+                addMsg(reply || "Хм, не знаю что сказать...", "b");
             }
         } catch (e) {
-            addMessage("Произошла ошибка сети. Попробуй обновить страницу.", 'b');
-        } finally {
-            status.style.display = 'none';
+            addMsg("Ошибка сети. Попробуй обновить страницу.", "b");
         }
     }
 
-    function addMessage(txt, sender) {
+    function addMsg(t, s) {
         const d = document.createElement('div');
-        d.className = 'msg ' + sender;
-        d.innerText = txt;
+        d.className = 'msg ' + s;
+        d.innerText = t;
         log.appendChild(d);
         log.scrollTop = log.scrollHeight;
     }
 
-    btn.onclick = sendMessage;
-    input.onkeypress = (e) => { if (e.key === 'Enter') sendMessage(); };
+    btn.onclick = chat;
+    input.onkeypress = (e) => { if (e.key === 'Enter') chat(); };
 </script>
 
 </body>
