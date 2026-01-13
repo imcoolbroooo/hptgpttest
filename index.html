@@ -1,50 +1,63 @@
+
+
 <!DOCTYPE html>
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>HTPgpt Fixed</title>
+    <title>HTPgpt Final</title>
     <style>
-        body { background: #0d1117; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        #chat { width: 400px; height: 500px; background: #161b22; display: flex; flex-direction: column; border-radius: 12px; border: 1px solid #30363d; }
+        body { background: #0d1117; color: #c9d1d9; font-family: -apple-system, system-ui, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #chat-container { width: 400px; height: 600px; background: #161b22; border: 1px solid #30363d; border-radius: 12px; display: flex; flex-direction: column; box-shadow: 0 10px 40px rgba(0,0,0,0.6); }
+        #header { padding: 15px; background: #21262d; border-bottom: 1px solid #30363d; border-radius: 12px 12px 0 0; text-align: center; color: #58a6ff; font-weight: bold; }
         #log { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .msg { padding: 10px; border-radius: 8px; font-size: 14px; max-width: 80%; }
-        .u { align-self: flex-end; background: #238636; }
-        .b { align-self: flex-start; background: #30363d; }
-        #input-area { padding: 10px; display: flex; gap: 5px; }
-        input { flex: 1; padding: 10px; border-radius: 5px; border: 1px solid #30363d; background: #0d1117; color: white; outline: none; }
-        button { padding: 10px; background: #238636; color: white; border: none; border-radius: 5px; cursor: pointer; }
+        .msg { padding: 10px 14px; border-radius: 10px; font-size: 14px; max-width: 85%; line-height: 1.4; }
+        .u { align-self: flex-end; background: #238636; color: white; }
+        .b { align-self: flex-start; background: #30363d; border: 1px solid #444c56; }
+        .status { font-size: 11px; color: #8b949e; text-align: center; margin: 5px; }
+        #input-area { padding: 15px; display: flex; gap: 10px; background: #161b22; border-top: 1px solid #30363d; border-radius: 0 0 12px 12px; }
+        input { flex: 1; background: #0d1117; border: 1px solid #30363d; color: white; padding: 10px; border-radius: 6px; outline: none; }
+        button { background: #238636; border: none; color: white; padding: 0 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
-<div id="chat">
-    <div id="log"><div class="msg b">Я на связи. Если я долго не отвечаю, значит я просыпаюсь. Напиши что-нибудь!</div></div>
+<div id="chat-container">
+    <div id="header">HTPgpt Online</div>
+    <div id="log">
+        <div class="msg b">Привет! Твой новый токен подключен. Напиши что-нибудь!</div>
+    </div>
+    <div id="status-text" class="status" style="display:none">ИИ обрабатывает запрос...</div>
     <div id="input-area">
-        <input type="text" id="user-input" placeholder="Сообщение...">
-        <button id="send-btn">></button>
+        <input type="text" id="user-input" placeholder="Введите сообщение..." autocomplete="off">
+        <button id="btn">></button>
     </div>
 </div>
 
 <script>
-    // Твой токен
-    const API_TOKEN = "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";
-    // Используем другую модель (более стабильную)
+    // Твой новый токен
+    const API_TOKEN = "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";
+    // Стабильная модель
     const MODEL_URL = "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill";
 
     const log = document.getElementById('log');
     const input = document.getElementById('user-input');
-    const btn = document.getElementById('send-btn');
+    const btn = document.getElementById('btn');
+    const status = document.getElementById('status-text');
 
-    async function send() {
+    async function sendMessage() {
         const text = input.value.trim();
         if (!text) return;
 
-        addMsg(text, 'u');
+        addMessage(text, 'u');
         input.value = '';
+        status.style.display = 'block';
 
         try {
             const response = await fetch(MODEL_URL, {
-                headers: { "Authorization": `Bearer ${API_TOKEN}`, "Content-Type": "application/json" },
+                headers: { 
+                    "Authorization": `Bearer ${API_TOKEN}`, 
+                    "Content-Type": "application/json" 
+                },
                 method: "POST",
                 body: JSON.stringify({ inputs: text }),
             });
@@ -52,29 +65,34 @@
             const data = await response.json();
 
             if (data.error) {
-                addMsg("Модель загружается. Попробуй еще раз через 20 секунд.", "b");
+                if (data.estimated_time) {
+                    addMessage(`Сервер "просыпается". Попробуй отправить еще раз через ${Math.round(data.estimated_time)} сек.`, 'b');
+                } else {
+                    addMessage("Ошибка токена или сервера. Проверь статус на Hugging Face.", 'b');
+                }
             } else {
-                // Blenderbot возвращает текст по-другому
-                const reply = data.generated_text || data[0].generated_text;
-                addMsg(reply, 'b');
+                // Извлекаем текст ответа
+                const reply = data.generated_text || (data[0] && data[0].generated_text) || "Я не знаю, что ответить.";
+                addMessage(reply, 'b');
             }
         } catch (e) {
-            addMsg("Ошибка связи. Проверь токен или интернет.", "b");
+            addMessage("Произошла ошибка сети. Попробуй обновить страницу.", 'b');
+        } finally {
+            status.style.display = 'none';
         }
     }
 
-    function addMsg(t, s) {
+    function addMessage(txt, sender) {
         const d = document.createElement('div');
-        d.className = 'msg ' + s;
-        d.innerText = t;
+        d.className = 'msg ' + sender;
+        d.innerText = txt;
         log.appendChild(d);
         log.scrollTop = log.scrollHeight;
     }
 
-    btn.onclick = send;
-    input.onkeypress = (e) => { if (e.key === 'Enter') send(); };
+    btn.onclick = sendMessage;
+    input.onkeypress = (e) => { if (e.key === 'Enter') sendMessage(); };
 </script>
 
 </body>
 </html>
-
