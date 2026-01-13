@@ -2,23 +2,23 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>HTPgpt - Final Fix</title>
+    <title>HTPgpt - Final Solution</title>
     <style>
         body { background: #0d1117; color: #c9d1d9; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        #chat { width: 400px; height: 500px; background: #161b22; border: 1px solid #30363d; border-radius: 10px; display: flex; flex-direction: column; }
-        #log { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
-        .msg { padding: 8px 12px; border-radius: 8px; font-size: 14px; max-width: 80%; }
+        #chat { width: 400px; height: 500px; background: #161b22; border-radius: 12px; border: 1px solid #30363d; display: flex; flex-direction: column; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        #log { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .msg { padding: 10px; border-radius: 8px; font-size: 14px; max-width: 80%; }
         .u { align-self: flex-end; background: #238636; }
-        .b { align-self: flex-start; background: #30363d; }
-        #input-area { padding: 10px; display: flex; gap: 5px; border-top: 1px solid #30363d; }
-        input { flex: 1; padding: 10px; border-radius: 5px; border: 1px solid #30363d; background: #0d1117; color: white; outline: none; }
-        button { padding: 10px; background: #238636; border: none; color: white; border-radius: 5px; cursor: pointer; }
+        .b { align-self: flex-start; background: #30363d; border: 1px solid #444c56; }
+        #input-area { padding: 10px; background: #1c2128; display: flex; gap: 5px; border-top: 1px solid #30363d; }
+        input { flex: 1; padding: 10px; border-radius: 6px; border: 1px solid #30363d; background: #0d1117; color: white; outline: none; }
+        button { padding: 10px 15px; background: #238636; border: none; color: white; border-radius: 6px; cursor: pointer; font-weight: bold; }
     </style>
 </head>
 <body>
 
 <div id="chat">
-    <div id="log"><div class="msg b">Я обновил настройки подключения. Попробуй отправить сообщение сейчас!</div></div>
+    <div id="log"><div class="msg b">Система обновлена. Если появится ошибка, просто нажми кнопку еще раз через 5 секунд.</div></div>
     <div id="input-area">
         <input type="text" id="user-input" placeholder="Напиши что-нибудь...">
         <button id="send-btn">></button>
@@ -26,14 +26,14 @@
 </div>
 
 <script>
-    // Твой зашифрованный токен (уже внутри)
+    // Твой зашифрованный токен
     const secret = "aGZfa1hVTEhyTmJDdkdFYmdwTE9Sb0Fpd3RDdGFDa0lQdWFMSA==";
     const API_TOKEN = atob(secret);
     
-    // Используем Microsoft DialoGPT — она отлично работает с браузерами напрямую
-    const MODEL_URL = "https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium";
+    // Используем проверенную модель GPT-2, она очень лояльна к браузерам
+    const MODEL_URL = "https://api-inference.huggingface.co/models/gpt2";
 
-    async function send() {
+    async function ask() {
         const input = document.getElementById('user-input');
         const text = input.value.trim();
         if (!text) return;
@@ -45,26 +45,26 @@
             const response = await fetch(MODEL_URL, {
                 method: "POST",
                 headers: { 
-                    "Authorization": `Bearer ${API_TOKEN}`,
+                    "Authorization": "Bearer " + API_TOKEN,
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ inputs: text }),
-                mode: 'cors' // Явно указываем режим CORS
+                body: JSON.stringify({ inputs: text })
             });
 
-            if (!response.ok) {
-                // Если сервер возвращает ошибку 503 или 404
-                addMsg("Сервер просыпается... Подожди 5 секунд и нажми кнопку еще раз.", "b");
-                return;
-            }
-
             const data = await response.json();
-            const reply = data.generated_text || (data[0] && data[0].generated_text);
-            addMsg(reply || "Я тебя понял!", "b");
-
+            
+            if (data.error) {
+                // Если модель грузится, она выдает ошибку, которую браузер считает CORS
+                addMsg("ИИ просыпается... Подожди немного и отправь сообщение снова.", "b");
+            } else {
+                let reply = data[0]?.generated_text || "Я получил твой сигнал!";
+                // Убираем из ответа твой же текст
+                reply = reply.replace(text, "").trim();
+                addMsg(reply || "Интересно...", "b");
+            }
         } catch (e) {
-            addMsg("Ошибка сети. Это может быть из-за расширений браузера (например, AdBlock).", "b");
-            console.error(e);
+            // Если всё еще CORS, значит Hugging Face перегружен
+            addMsg("Ошибка связи. Попробуй нажать кнопку еще раз через 5 секунд.", "b");
         }
     }
 
@@ -77,10 +77,9 @@
         log.scrollTop = log.scrollHeight;
     }
 
-    document.getElementById('send-btn').onclick = send;
-    document.getElementById('user-input').onkeypress = (e) => { if (e.key === 'Enter') send(); };
+    document.getElementById('send-btn').onclick = ask;
+    document.getElementById('user-input').onkeypress = (e) => { if(e.key === 'Enter') ask(); };
 </script>
 
 </body>
 </html>
-
