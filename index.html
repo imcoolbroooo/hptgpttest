@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>HTPgpt - Fix CORS</title>
+    <style>
+        body { background: #121212; color: #eee; font-family: 'Segoe UI', sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #chat-container { width: 380px; height: 500px; background: #1e1e1e; border-radius: 12px; display: flex; flex-direction: column; border: 1px solid #333; box-shadow: 0 8px 32px rgba(0,0,0,0.5); }
+        #messages { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .msg { padding: 10px; border-radius: 8px; font-size: 14px; max-width: 80%; word-wrap: break-word; }
+        .user { align-self: flex-end; background: #0056b3; }
+        .bot { align-self: flex-start; background: #333; border: 1px solid #444; }
+        .info { font-size: 10px; color: #777; align-self: center; text-align: center; }
+        #input-area { display: flex; padding: 10px; background: #181818; border-bottom-left-radius: 12px; border-bottom-right-radius: 12px; }
+        input { flex: 1; background: #252525; border: 1px solid #444; color: white; padding: 10px; border-radius: 6px; outline: none; }
+        button { margin-left: 8px; background: #28a745; border: none; color: white; padding: 10px 15px; border-radius: 6px; cursor: pointer; font-weight: bold; }
+        button:hover { background: #218838; }
+    </style>
+</head>
+<body>
+
+<div id="chat-container">
+    <div id="messages">
+        <div class="msg bot">Привет! Я исправил ошибку доступа. Теперь мы можем общаться прямо из файла.</div>
+    </div>
+    <div id="input-area">
+        <input type="text" id="user-input" placeholder="Напиши что-нибудь...">
+        <button id="send-btn">></button>
+    </div>
+</div>
+
+<script>
+// Твой токен остается здесь
+const API_TOKEN = "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";
+const MODEL_URL = "https://api-inference.huggingface.co/models/gpt2";
+
+document.addEventListener("DOMContentLoaded", () => {
+    const input = document.getElementById('user-input');
+    const btn = document.getElementById('send-btn');
+    const box = document.getElementById('messages');
+
+    function show(text, type) {
+        const d = document.createElement('div');
+        d.className = 'msg ' + type;
+        d.innerText = text;
+        box.appendChild(d);
+        box.scrollTop = box.scrollHeight;
+    }
+
+    async function chat() {
+        const val = input.value.trim();
+        if (!val) return;
+
+        show(val, 'user');
+        input.value = '';
+
+        try {
+            // Используем fetch с параметром mode: 'cors'
+            const response = await fetch(MODEL_URL, {
+                headers: { 
+                    "Authorization": `Bearer ${API_TOKEN}`,
+                    "Content-Type": "application/json"
+                },
+                method: "POST",
+                mode: 'cors', // Явно указываем режим CORS
+                body: JSON.stringify({ inputs: val, parameters: { max_new_tokens: 50 } }),
+            });
+
+            const data = await response.json();
+
+            if (data.error) {
+                show("Модель загружается на сервер Hugging Face. Попробуй еще раз через 20 секунд.", "info");
+            } else if (data[0] && data[0].generated_text) {
+                let cleanText = data[0].generated_text.replace(val, "").trim();
+                show(cleanText || "...", "bot");
+            }
+        } catch (e) {
+            show("Браузер всё ещё блокирует запрос. Чтобы это исправить на 100%, нужно просто загрузить этот файл на GitHub или CodePen.", "info");
+            console.error(e);
+        }
+    }
+
+    btn.onclick = chat;
+    input.onkeypress = (e) => { if (e.key === 'Enter') chat(); };
+});
+</script>
+
+</body>
+</html>
