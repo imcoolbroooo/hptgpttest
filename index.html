@@ -2,91 +2,77 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>HTPgpt - AI Chat</title>
+    <title>HTPgpt Fixed</title>
     <style>
-        body { background: #0b0e11; color: #e9ecef; font-family: 'Segoe UI', Tahoma, sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        #chat-window { width: 100%; max-width: 450px; height: 80vh; background: #1c2128; border-radius: 15px; display: flex; flex-direction: column; box-shadow: 0 10px 30px rgba(0,0,0,0.5); border: 1px solid #444c56; }
-        #header { background: #2d333b; padding: 15px; border-radius: 15px 15px 0 0; text-align: center; color: #3fb950; font-weight: bold; border-bottom: 1px solid #444c56; }
-        #messages { flex: 1; padding: 20px; overflow-y: auto; display: flex; flex-direction: column; gap: 12px; }
-        .msg { padding: 10px 14px; border-radius: 12px; font-size: 14px; max-width: 80%; line-height: 1.5; word-wrap: break-word; }
-        .user { align-self: flex-end; background: #238636; color: white; border-bottom-right-radius: 2px; }
-        .bot { align-self: flex-start; background: #30363d; border: 1px solid #444c56; border-bottom-left-radius: 2px; }
-        #status { font-size: 12px; color: #8b949e; text-align: center; display: none; padding: 5px; }
-        #input-area { padding: 15px; display: flex; gap: 10px; background: #21262d; border-radius: 0 0 15px 15px; }
-        input { flex: 1; background: #0d1117; border: 1px solid #30363d; padding: 12px; border-radius: 6px; color: white; outline: none; }
-        button { background: #238636; border: none; color: white; padding: 0 20px; border-radius: 6px; cursor: pointer; font-weight: bold; }
-        button:hover { background: #2ea043; }
+        body { background: #0d1117; color: white; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
+        #chat { width: 400px; height: 500px; background: #161b22; display: flex; flex-direction: column; border-radius: 12px; border: 1px solid #30363d; }
+        #log { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
+        .msg { padding: 10px; border-radius: 8px; font-size: 14px; max-width: 80%; }
+        .u { align-self: flex-end; background: #238636; }
+        .b { align-self: flex-start; background: #30363d; }
+        #input-area { padding: 10px; display: flex; gap: 5px; }
+        input { flex: 1; padding: 10px; border-radius: 5px; border: 1px solid #30363d; background: #0d1117; color: white; outline: none; }
+        button { padding: 10px; background: #238636; color: white; border: none; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
 
-<div id="chat-window">
-    <div id="header">HTPgpt v1.0</div>
-    <div id="messages">
-        <div class="msg bot">Привет! Я HTPgpt. Можешь писать мне на русском или английском.</div>
-    </div>
-    <div id="status">Нейросеть думает...</div>
+<div id="chat">
+    <div id="log"><div class="msg b">Я на связи. Если я долго не отвечаю, значит я просыпаюсь. Напиши что-нибудь!</div></div>
     <div id="input-area">
-        <input type="text" id="user-input" placeholder="Введите сообщение..." autocomplete="off">
-        <button id="send-btn">Send</button>
+        <input type="text" id="user-input" placeholder="Сообщение...">
+        <button id="send-btn">></button>
     </div>
 </div>
 
 <script>
+    // Твой токен
     const API_TOKEN = "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";
-    const MODEL_URL = "https://api-inference.huggingface.co/models/mistralai/Mistral-7B-Instruct-v0.2";
+    // Используем другую модель (более стабильную)
+    const MODEL_URL = "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill";
 
-    const messagesDiv = document.getElementById('messages');
-    const inputField = document.getElementById('user-input');
-    const sendBtn = document.getElementById('send-btn');
-    const statusDiv = document.getElementById('status');
+    const log = document.getElementById('log');
+    const input = document.getElementById('user-input');
+    const btn = document.getElementById('send-btn');
 
-    async function callAI() {
-        const text = inputField.value.trim();
+    async function send() {
+        const text = input.value.trim();
         if (!text) return;
 
-        addMessage(text, 'user');
-        inputField.value = '';
-        statusDiv.style.display = 'block';
+        addMsg(text, 'u');
+        input.value = '';
 
         try {
             const response = await fetch(MODEL_URL, {
+                headers: { "Authorization": `Bearer ${API_TOKEN}`, "Content-Type": "application/json" },
                 method: "POST",
-                headers: { 
-                    "Authorization": `Bearer ${API_TOKEN}`,
-                    "Content-Type": "application/json" 
-                },
-                body: JSON.stringify({ 
-                    inputs: `<s>[INST] Отвечай на русском языке. ${text} [/INST]`,
-                    parameters: { max_new_tokens: 250 }
-                }),
+                body: JSON.stringify({ inputs: text }),
             });
 
             const data = await response.json();
-            
+
             if (data.error) {
-                addMessage("ИИ загружается (обычно это занимает 30 сек). Попробуй еще раз через мгновение.", "bot");
+                addMsg("Модель загружается. Попробуй еще раз через 20 секунд.", "b");
             } else {
-                let aiText = data[0].generated_text.split('[/INST]').pop().trim();
-                addMessage(aiText || "Я не смог придумать ответ...", "bot");
+                // Blenderbot возвращает текст по-другому
+                const reply = data.generated_text || data[0].generated_text;
+                addMsg(reply, 'b');
             }
-        } catch (err) {
-            addMessage("Ошибка связи с сервером.", "bot");
-        } finally {
-            statusDiv.style.display = 'none';
+        } catch (e) {
+            addMsg("Ошибка связи. Проверь токен или интернет.", "b");
         }
     }
 
-    function addMessage(text, sender) {
-        const div = document.createElement('div');
-        div.className = `msg ${sender}`;
-        div.innerText = text;
-        messagesDiv.appendChild(div);
-        messagesDiv.scrollTop = messagesDiv.scrollHeight;
+    function addMsg(t, s) {
+        const d = document.createElement('div');
+        d.className = 'msg ' + s;
+        d.innerText = t;
+        log.appendChild(d);
+        log.scrollTop = log.scrollHeight;
     }
 
-    sendBtn.onclick = callAI;
-    inputField.onkeypress = (e) => { if (e.key === 'Enter') callAI(); };
+    btn.onclick = send;
+    input.onkeypress = (e) => { if (e.key === 'Enter') send(); };
 </script>
 
 </body>
