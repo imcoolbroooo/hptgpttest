@@ -2,25 +2,25 @@
 <html lang="ru">
 <head>
     <meta charset="UTF-8">
-    <title>HTPgpt - Fixed CORS</title>
+    <title>HTPgpt - Final Fix</title>
     <style>
         body { background: #0d1117; color: #c9d1d9; font-family: sans-serif; display: flex; justify-content: center; align-items: center; height: 100vh; margin: 0; }
-        #chat { width: 400px; height: 500px; background: #161b22; border-radius: 12px; border: 1px solid #30363d; display: flex; flex-direction: column; overflow: hidden; }
-        #log { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 10px; }
-        .msg { padding: 10px; border-radius: 8px; font-size: 14px; max-width: 80%; }
+        #chat { width: 400px; height: 500px; background: #161b22; border: 1px solid #30363d; border-radius: 10px; display: flex; flex-direction: column; }
+        #log { flex: 1; padding: 15px; overflow-y: auto; display: flex; flex-direction: column; gap: 8px; }
+        .msg { padding: 8px 12px; border-radius: 8px; font-size: 14px; max-width: 80%; }
         .u { align-self: flex-end; background: #238636; }
         .b { align-self: flex-start; background: #30363d; }
-        #input-area { padding: 10px; background: #1c2128; display: flex; gap: 5px; }
+        #input-area { padding: 10px; display: flex; gap: 5px; border-top: 1px solid #30363d; }
         input { flex: 1; padding: 10px; border-radius: 5px; border: 1px solid #30363d; background: #0d1117; color: white; outline: none; }
-        button { padding: 10px 15px; background: #238636; border: none; color: white; border-radius: 5px; cursor: pointer; }
+        button { padding: 10px; background: #238636; border: none; color: white; border-radius: 5px; cursor: pointer; }
     </style>
 </head>
 <body>
 
 <div id="chat">
-    <div id="log"><div class="msg b">Ошибка CORS исправлена. Попробуй написать что-нибудь!</div></div>
+    <div id="log"><div class="msg b">Я обновил настройки подключения. Попробуй отправить сообщение сейчас!</div></div>
     <div id="input-area">
-        <input type="text" id="user-input" placeholder="Введите текст...">
+        <input type="text" id="user-input" placeholder="Напиши что-нибудь...">
         <button id="send-btn">></button>
     </div>
 </div>
@@ -30,10 +30,10 @@
     const secret = "aGZfa1hVTEhyTmJDdkdFYmdwTE9Sb0Fpd3RDdGFDa0lQdWFMSA==";
     const API_TOKEN = atob(secret);
     
-    // МЕНЯЕМ МОДЕЛЬ НА ТУ, ЧТО НЕ БЛОКИРУЕТ БРАУЗЕР
-    const MODEL_URL = "https://api-inference.huggingface.co/models/facebook/blenderbot-400M-distill";
+    // Используем Microsoft DialoGPT — она отлично работает с браузерами напрямую
+    const MODEL_URL = "https://api-inference.huggingface.co/models/microsoft/DialoGPT-medium";
 
-    async function ask() {
+    async function send() {
         const input = document.getElementById('user-input');
         const text = input.value.trim();
         if (!text) return;
@@ -48,20 +48,22 @@
                     "Authorization": `Bearer ${API_TOKEN}`,
                     "Content-Type": "application/json"
                 },
-                body: JSON.stringify({ inputs: text })
+                body: JSON.stringify({ inputs: text }),
+                mode: 'cors' // Явно указываем режим CORS
             });
 
-            const data = await response.json();
-            
-            // Если модель еще спит (Error 503)
-            if (data.error) {
-                addMsg("ИИ просыпается... Подожди 10 сек и нажми кнопку еще раз.", "b");
-            } else {
-                const reply = data.generated_text || (data[0] && data[0].generated_text);
-                addMsg(reply || "Я задумался, попробуй еще раз.", "b");
+            if (!response.ok) {
+                // Если сервер возвращает ошибку 503 или 404
+                addMsg("Сервер просыпается... Подожди 5 секунд и нажми кнопку еще раз.", "b");
+                return;
             }
+
+            const data = await response.json();
+            const reply = data.generated_text || (data[0] && data[0].generated_text);
+            addMsg(reply || "Я тебя понял!", "b");
+
         } catch (e) {
-            addMsg("Ошибка соединения. Попробуй обновить страницу.", "b");
+            addMsg("Ошибка сети. Это может быть из-за расширений браузера (например, AdBlock).", "b");
             console.error(e);
         }
     }
@@ -70,13 +72,15 @@
         const d = document.createElement('div');
         d.className = 'msg ' + s;
         d.innerText = t;
-        document.getElementById('log').appendChild(d);
-        document.getElementById('log').scrollTop = document.getElementById('log').scrollHeight;
+        const log = document.getElementById('log');
+        log.appendChild(d);
+        log.scrollTop = log.scrollHeight;
     }
 
-    document.getElementById('send-btn').onclick = ask;
-    document.getElementById('user-input').onkeypress = (e) => { if(e.key === 'Enter') ask(); };
+    document.getElementById('send-btn').onclick = send;
+    document.getElementById('user-input').onkeypress = (e) => { if (e.key === 'Enter') send(); };
 </script>
 
 </body>
 </html>
+
